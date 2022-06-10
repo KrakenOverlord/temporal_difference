@@ -1,6 +1,6 @@
 const DEFAULT_ACTION_VALUE: f32 = 0.0;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum Action {
 	Up(f32),
 	Right(f32),
@@ -15,8 +15,8 @@ struct State {
 }
 
 impl State {
-    fn new(row: u32, col: u32) -> State {
-        State { 
+    fn new(row: u32, col: u32) -> Self {
+        Self { 
             row: row, 
             col: col,
             actions: vec![
@@ -31,12 +31,12 @@ impl State {
 
 impl Clone for State {
     fn clone(&self) -> Self {
-        let actions = Vec::new();
-        for action in self.actions {
-            actions.push(action);
+        let mut actions = Vec::new();
+        for action in &self.actions {
+            actions.push(*action);
         }
 
-        State {
+        Self {
             row: self.row,
             col: self.col,
             actions: actions,
@@ -77,11 +77,11 @@ impl Agent {
         let state = self.convert_state(state);
 
         let last_action_value = self.get_last_action_value();
-        let next_action_value = self.get_next_action_value(state);
+        let next_action_value = self.get_next_action_value(state.clone(), epsilon);
         let action_value = last_action_value + reward + epsilon * (next_action_value - last_action_value);
         self.update_action_value(self.last_row, self.last_col, self.last_action, action_value);
 
-        let next_action = self.get_next_action(state);
+        let next_action = self.get_next_action(state.clone(), epsilon);
         match next_action {
             Some(a) => Some(Agent::unconvert_action(a)),
             None => None,
@@ -95,8 +95,8 @@ impl Agent {
         }
     }
 
-    fn get_next_action_value(&self, state: State) -> f32 {
-        let action = self.get_next_action(state);
+    fn get_next_action_value(&self, state: State, epsilon: f32) -> f32 {
+        let action = self.get_next_action(state, epsilon);
         match action {
             Some(a) => Agent::get_action_value(a),
             None => DEFAULT_ACTION_VALUE,
@@ -113,11 +113,55 @@ impl Agent {
     }
 
     fn update_action_value(&mut self, row: u32, col: u32, action: Option<Action>, action_value: f32) {
+        let action = match action {
+            Some(a) => a,
+            None => return,
+        };
+        let actions = &self.states[row as usize][col as usize].actions;
+        let mut new_actions: Vec<Action> = Vec::new();
 
+        for a in actions {
+            match a {
+                Action::Up(_) => {
+                    match action {
+                        Action::Up(_) => {
+                            new_actions.push(Action::Up(action_value));
+                        },
+                        _ => new_actions.push(*a),
+                    }
+                },
+                Action::Right(_) => {
+                    match action {
+                        Action::Right(_) => {
+                            new_actions.push(Action::Right(action_value));
+                        },
+                        _ => new_actions.push(*a),
+                    }
+                },
+                Action::Down(_) => {
+                    match action {
+                        Action::Down(_) => {
+                            new_actions.push(Action::Down(action_value));
+                        },
+                        _ => new_actions.push(*a),
+                    }
+                },
+                Action::Left(_) => {
+                    match action {
+                        Action::Left(_) => {
+                            new_actions.push(Action::Left(action_value));
+                        },
+                        _ => new_actions.push(*a),
+                    }
+                },
+            }
+        }
+
+        self.states[row as usize][col as usize].actions = new_actions;
     }
 
     // Returns epsilon greedy action value for the state
-    fn get_next_action(&self, state: State) -> Option<Action> {
+    fn get_next_action(&self, state: State, epsilon: f32) -> Option<Action> {
         let mut next_action = None;
         let mut max_action_value = DEFAULT_ACTION_VALUE;
 
@@ -133,7 +177,7 @@ impl Agent {
     }
 
     fn convert_state(&self, state: crate::environment::State) -> State {
-        self.states[state.row as usize][state.col as usize]
+        self.states[state.row as usize][state.col as usize].clone()
     }
 
     fn unconvert_action(action: Action) -> crate::Action {

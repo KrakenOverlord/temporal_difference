@@ -15,8 +15,15 @@ pub struct Environment {
 
 impl Environment {
     pub fn new(num_rows: u32, num_cols: u32) -> Self {		
-        let mut states = vec![];
+		Self { 
+            num_rows,
+            num_cols,
+			states: Environment::create_state_grid(num_rows, num_cols),
+		}
+	}
 
+	fn create_state_grid(num_rows: u32, num_cols: u32) -> Vec<Vec<State>> {
+		let mut states = Vec::new();
 		for row in 0..num_rows {
 			let mut s: Vec<State> = Vec::new();
 			for col in 0..num_cols  {
@@ -28,15 +35,21 @@ impl Environment {
 			}
 			states.push(s);
 		}
-		
-		Self { 
-            num_rows,
-            num_cols,
-			states,
-		}
-	}  
+		states
+	}
 
-	pub fn respond(&self, state: State, action: Action) -> (State, f32) {
+	pub fn respond(&self, state: State, action: Option<Action>) -> Option<(State, f32)> {
+		match action {
+			Some(a) => {
+				let s = self.iterate(state, a);
+				Some(s)
+			},
+			None => None,
+		}
+	}
+
+	// Returns the next state and reward given the current state and action.
+	fn iterate(&self, state: State, action: Action) -> (State, f32) {
 		match action {
 			Action::Up => {
 				if state.row == 0 {

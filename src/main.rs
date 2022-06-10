@@ -113,17 +113,21 @@ impl WindowHandler for Main {
 		self: &mut Main,
 		helper: &mut WindowHelper, 
 		graphics: &mut Graphics2D
-	) {
-		graphics.clear_screen(Color::BLACK);
-		
+	) {		
 		let action = self.agent.act(self.state, self.reward, EPSILON);
-		let (state, reward) = self.environment.respond(self.state, action);
-		self.state = state;
-		self.reward = reward;
+		let response = self.environment.respond(self.state, action);
+		match response {
+			Some(s) => {
+				self.state = s.0;
+				self.reward = s.1;
+			},
+			None => {},
+		}
 		
 		self.steps += 1;
 		println!("Step: {}", self.steps);
 		
+		graphics.clear_screen(Color::BLACK);
 		self.draw(graphics);
 		helper.request_redraw();
 	}
@@ -134,12 +138,6 @@ impl WindowHandler for Main {
 		_virtual_key_code: Option<speedy2d::window::VirtualKeyCode>,
 		_scancode: speedy2d::window::KeyScancode
 	) {
-		// self.converged = self.environment.act();
-		// self.steps += 1;
-		// if self.converged {
-		// 	println!("Converged after {} steps.", self.steps - 1);
-		// } else {
-		// 	println!("Steps: {}", self.steps);
-		// }
+		
 	}
 }
