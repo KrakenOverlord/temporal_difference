@@ -13,6 +13,15 @@ const Y_OFFSET: u32 = 50;
 const CELL_SIZE: u32 = 100;
 const MANUAL_STEP: bool = false;
 const STARTING_STATE: State = State { row: 0, col: 0, terminal: false };
+const EPSILON: f32 = 0.01;
+
+#[derive(Copy, Clone, Debug)]
+pub enum Action {
+	Up,
+	Right,
+	Down, 
+	Left,
+}
 
 fn main() {
 	let x_dimension = NUM_COLS * CELL_SIZE + 2 * X_OFFSET;
@@ -22,11 +31,11 @@ fn main() {
     window.run_loop(Main::new());
 }
 pub struct Main {
-	steps: u32,
-	state: State,
-	reward: f64,
-	agent: Agent,
-    environment: Environment,
+	steps: 			u32,
+	state: 			State,
+	reward: 		f32,
+	agent: 			Agent,
+    environment: 	Environment,
 }
 
 impl Main {
@@ -38,7 +47,7 @@ impl Main {
 			steps: 0,
 			state: STARTING_STATE,
 			reward: 0.0,
-			agent: Agent {},
+			agent: Agent::new(STARTING_STATE, NUM_ROWS, NUM_COLS),
         	environment: Environment::new(NUM_ROWS, NUM_COLS),
     	}
 	}
@@ -68,39 +77,35 @@ impl Main {
 	}
 	
 	fn draw_states(&self, graphics: &mut Graphics2D) {
-		for row in &self.states {
+		for row in &self.environment.states {
 			for state in row  {
-				state.draw(graphics, &self.font, self.x_offset, self.y_offset, self.cell_size);
+				// draw policy
+				// if self.terminal() == false {
+				// 	let policy = match self.policy {
+				// 		Action::Up(_) => "U",
+				// 		Action::Right(_) => "R",
+				// 		Action::Down(_) => "D",
+				// 		Action::Left(_) => "L",
+				// 	};
+				// 	let policy_text = format!("{}{}:{}", self.row, self.col, policy);
+				// 	let value_block = font.layout_text(&policy_text, 0.4 * cell_size as f32, TextOptions::new());
+				// 	let x = x_offset as f32 + self.col as f32 * cell_size as f32 + 0.5 * cell_size as f32 - 0.5 * value_block.width();
+				// 	let y = y_offset as f32 + self.row as f32 * cell_size as f32 + 0.5 * cell_size as f32 - value_block.height();
+				// 	graphics.draw_text((x.round(), y.round()), Color::WHITE, &value_block);
+				// }
+
+				// draw value
+				// let value_text = format!("{:.4}", self.value);
+				// let value_block = font.layout_text(&value_text, 0.4 * cell_size as f32, TextOptions::new());
+				// let x = x_offset as f32 + self.col as f32 * cell_size as f32 + 0.5 * cell_size as f32 - 0.5 * value_block.width();
+				// let y = y_offset as f32 + self.row as f32 * cell_size as f32 + 0.5 * cell_size as f32 - 0.25 * value_block.height();
+				// graphics.draw_text((x.round(), y.round()), Color::WHITE, &value_block);
 			}
 		}
 	}
 
 	fn draw_agent(&self, graphics: &mut Graphics2D) {
 	}
-	
-	// fn draw(&self, graphics: &mut Graphics2D, font: &Font, x_offset: u32, y_offset: u32, cell_size: u32) {
-	// 	// draw policy
-	// 	if self.terminal() == false {
-	// 		let policy = match self.policy {
-	// 			Action::Up(_) => "U",
-	// 			Action::Right(_) => "R",
-	// 			Action::Down(_) => "D",
-	// 			Action::Left(_) => "L",
-	// 		};
-	// 		let policy_text = format!("{}{}:{}", self.row, self.col, policy);
-	// 		let value_block = font.layout_text(&policy_text, 0.4 * cell_size as f32, TextOptions::new());
-	// 		let x = x_offset as f32 + self.col as f32 * cell_size as f32 + 0.5 * cell_size as f32 - 0.5 * value_block.width();
-	// 		let y = y_offset as f32 + self.row as f32 * cell_size as f32 + 0.5 * cell_size as f32 - value_block.height();
-	// 		graphics.draw_text((x.round(), y.round()), Color::WHITE, &value_block);
-	// 	}
-
-	// 	// draw value
-	// 	let value_text = format!("{:.4}", self.value);
-	// 	let value_block = font.layout_text(&value_text, 0.4 * cell_size as f32, TextOptions::new());
-	// 	let x = x_offset as f32 + self.col as f32 * cell_size as f32 + 0.5 * cell_size as f32 - 0.5 * value_block.width();
-	// 	let y = y_offset as f32 + self.row as f32 * cell_size as f32 + 0.5 * cell_size as f32 - 0.25 * value_block.height();
-	// 	graphics.draw_text((x.round(), y.round()), Color::WHITE, &value_block);
-	// }
 }
 
 impl WindowHandler for Main {
@@ -111,7 +116,7 @@ impl WindowHandler for Main {
 	) {
 		graphics.clear_screen(Color::BLACK);
 		
-		let action = self.agent.act(self.state, self.reward);
+		let action = self.agent.act(self.state, self.reward, EPSILON);
 		let (state, reward) = self.environment.respond(self.state, action);
 		self.state = state;
 		self.reward = reward;

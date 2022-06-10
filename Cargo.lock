@@ -1147,7 +1147,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "simulator"
+name = "simulation"
 version = "0.1.0"
 dependencies = [
  "rand",

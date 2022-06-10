@@ -1,4 +1,4 @@
-use crate::agent::Action;
+use crate::Action;
 
 #[derive(Copy, Clone, Debug)]
 pub struct State {
@@ -10,7 +10,7 @@ pub struct State {
 pub struct Environment {
 	num_rows: u32, 
 	num_cols: u32, 
-	states: Vec<Vec<State>>,
+	pub states: Vec<Vec<State>>,
 }
 
 impl Environment {
@@ -36,7 +36,7 @@ impl Environment {
 		}
 	}  
 
-	pub fn respond(&self, state: State, action: Action) -> (State, f64) {
+	pub fn respond(&self, state: State, action: Action) -> (State, f32) {
 		match action {
 			Action::Up => {
 				if state.row == 0 {
