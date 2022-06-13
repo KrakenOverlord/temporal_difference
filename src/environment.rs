@@ -38,7 +38,7 @@ impl Environment {
 		states
 	}
 
-	fn is_goal(row: u32, col: u32, goals: [State; NUM_GOALS as usize]) -> bool {
+	pub fn is_goal(row: u32, col: u32, goals: [State; NUM_GOALS as usize]) -> bool {
 		for goal in goals {
 			if goal.row == row && goal.col == col {
 				return true;
@@ -47,9 +47,15 @@ impl Environment {
 		false
 	}
 
-	// Returns the next state and reward given the current state and action.
+	// Returns (next state, -1.0) given the current state and action.
+	// If state = goal then return (goal, 0.0)
+	// If next state is goal then return (goal, 0.0)
 	pub fn respond(&self, state: State, action: Action) -> (State, f32) {
-		match action {
+		if state.goal {
+			return (state, 0.0);
+		}
+
+		let mut response = match action {
 			Action::Up => {
 				if state.row == 0 {
 					(state, -1.0)
@@ -63,7 +69,7 @@ impl Environment {
 					(state, -1.0)
 				}
 				else {
-					(self.states[(state.row) as usize][(state.col + 1) as usize].clone(), -1.0)
+					(self.states[state.row as usize][(state.col + 1) as usize].clone(), -1.0)
 				}	
 			},
 			Action::Down => {
@@ -82,6 +88,12 @@ impl Environment {
 					(self.states[state.row as usize][(state.col - 1) as usize].clone(), -1.0)
 				}	
 			},
+		};
+
+		if response.0.goal {
+			response.1 = 0.0;
 		}
+
+		response
 	}
 }

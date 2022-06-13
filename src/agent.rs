@@ -1,5 +1,7 @@
-const ALPHA: f32 = 1.0;
-const EPSILON: f32 = 0.01;
+use rand::prelude::SliceRandom;
+
+const EPSILON: u32 = 4;
+const ALPHA: f32 = 0.25;
 const GAMMA: f32 = 1.0;
 const DEFAULT_ACTION_VALUE: f32 = 0.0;
 
@@ -31,7 +33,9 @@ impl Action {
     }
 }
 
+#[derive(Debug)]
 pub struct State {
+    pub visits:     u32,
 	pub row:        u32,
 	pub col:        u32,
     pub actions:    Vec<Action>,
@@ -40,6 +44,7 @@ pub struct State {
 impl State {
     fn new(row: u32, col: u32) -> Self {
         Self { 
+            visits: 0,
             row: row, 
             col: col,
             actions: vec![
@@ -51,20 +56,27 @@ impl State {
         }
     }
 
-    // Returns epsilon greedy action value for the state
-    fn next_action(&self) -> Action {
-        let mut next_action = *self.actions.first().unwrap();
-        let mut max_action_value = next_action.value();
+    // Returns epsilon greedy action value for the state. Randomly break ties.
+    fn select_action(&self) -> Action {
+        if self.visits % EPSILON == 0 {
+            return *self.actions.choose(&mut rand::thread_rng()).unwrap();
+        }
+
+        let mut actions = Vec::new();
+        let mut max_action_value = self.actions.first().unwrap().value();
 
         for action in &self.actions {
             let action_value = action.value();
-            if action_value > max_action_value {
+            if action_value == max_action_value {
+                actions.push(*action);
+            } else if action_value > max_action_value {
                 max_action_value = action_value;
-                next_action = *action;
+                actions.clear();
+                actions.push(*action);
             }
         }
 
-        next_action
+        *actions.choose(&mut rand::thread_rng()).unwrap()
     }
 }
 
@@ -76,13 +88,15 @@ impl Clone for State {
         }
 
         Self {
-            row: self.row,
-            col: self.col,
-            actions: actions,
+            visits:     self.visits,
+            row:        self.row,
+            col:        self.col,
+            actions:    actions,
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Agent {
     pub state:  State,
     pub action: Action,
@@ -94,13 +108,22 @@ impl Agent {
     pub fn new(state: crate::environment::State, num_rows: u32, num_cols: u32) -> Agent {
         let states = Agent::initialize_states(num_rows, num_cols);
         let state = Agent::convert_state(state, &states);
-        let action = state.next_action();
+        let action = state.select_action();
         
+        println!("Agent initialized to {:#?}", state);
+        println!("Agent initialized to action: {:#?}", action);
+
         Agent {
             state,
             action,
             states,
         }
+    }
+
+    pub fn reset(&mut self, state: crate::environment::State) {
+        let state = Agent::convert_state(state, &self.states);
+        self.state = state.clone();
+        self.action = state.select_action();
     }
 
     fn initialize_states(num_rows: u32, num_cols: u32) -> Vec<Vec<State>> {
@@ -117,16 +140,17 @@ impl Agent {
 
     pub fn iterate(&mut self, new_state: crate::environment::State, reward: f32) -> crate::Action {
         let new_state = Agent::convert_state(new_state, &self.states);
+        let new_action = new_state.select_action();
 
-        let last_action_value = self.action.value();
-        let next_action_value = new_state.next_action().value();
-        let action_value = last_action_value + reward + ALPHA * (GAMMA * next_action_value - last_action_value);
-        Agent::update_action_value(&mut self.states, self.state.clone(), self.action, action_value);
+        // Q(s, a) ← Q(s, a) + α (r + γQ(s0, a0) − Q(s, a))
+        let prediction = self.action.value();
+        let target = reward + GAMMA * new_action.value();
+        let updated_action_value = prediction + ALPHA * (target - prediction);
+        Agent::update_action_value(&mut self.states, self.state.clone(), self.action, updated_action_value);
 
-        let next_action = new_state.next_action();
         self.state = new_state;
-        self.action = next_action;
-        next_action.convert()
+        self.action = new_action;
+        new_action.convert()
     }
 
     fn update_action_value(states: &mut Vec<Vec<State>>, state: State, action: Action, action_value: f32) {
