@@ -1,8 +1,8 @@
 use rand::prelude::SliceRandom;
 
-const EPSILON: u32 = 4;
-const ALPHA: f32 = 0.25;
-const GAMMA: f32 = 1.0;
+const EPSILON: u32 = 5;
+const ALPHA: f32 = 0.1;
+const GAMMA: f32 = 0.8;
 const DEFAULT_ACTION_VALUE: f32 = 0.0;
 
 #[derive(Copy, Clone, Debug)]
@@ -56,8 +56,14 @@ impl State {
         }
     }
 
+    fn reset(&mut self) {
+        self.visits = 0;
+    }
+
     // Returns epsilon greedy action value for the state. Randomly break ties.
-    fn select_action(&self) -> Action {
+    fn select_action(&mut self) -> Action {
+        self.visits += 1;
+
         if self.visits % EPSILON == 0 {
             return *self.actions.choose(&mut rand::thread_rng()).unwrap();
         }
@@ -107,7 +113,7 @@ impl Agent {
     // Returns an agent initialized with the starting state and first action selection.
     pub fn new(state: crate::environment::State, num_rows: u32, num_cols: u32) -> Agent {
         let states = Agent::initialize_states(num_rows, num_cols);
-        let state = Agent::convert_state(state, &states);
+        let mut state = Agent::convert_state(state, &states);
         let action = state.select_action();
         
         println!("Agent initialized to {:#?}", state);
@@ -121,7 +127,14 @@ impl Agent {
     }
 
     pub fn reset(&mut self, state: crate::environment::State) {
-        let state = Agent::convert_state(state, &self.states);
+        // reset state visits to zero
+        for row in &mut self.states {
+            for state in row {
+                state.reset();
+            }
+        }
+        
+        let mut state = Agent::convert_state(state, &self.states);
         self.state = state.clone();
         self.action = state.select_action();
     }
@@ -139,7 +152,7 @@ impl Agent {
     }
 
     pub fn iterate(&mut self, new_state: crate::environment::State, reward: f32) -> crate::Action {
-        let new_state = Agent::convert_state(new_state, &self.states);
+        let mut new_state = Agent::convert_state(new_state, &self.states);
         let new_action = new_state.select_action();
 
         // Q(s, a) ← Q(s, a) + α (r + γQ(s0, a0) − Q(s, a))

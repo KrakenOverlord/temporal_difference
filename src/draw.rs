@@ -1,6 +1,8 @@
-use speedy2d::{Graphics2D, color::Color, dimen::Vector2, shape::Rectangle, font::{TextOptions, Font, TextLayout}};
+use std::rc::Rc;
 
-use crate::{NUM_ROWS, NUM_COLS, X_OFFSET, Y_OFFSET, CELL_SIZE, GOALS, agent::{self, Agent}, environment::{self, Environment}};
+use speedy2d::{Graphics2D, color::Color, dimen::Vector2, shape::Rectangle, font::{TextOptions, Font, TextLayout, FormattedTextBlock}};
+
+use crate::{NUM_ROWS, NUM_COLS, X_OFFSET, Y_OFFSET, CELL_SIZE, GOALS, agent::{self, Agent, State, Action}, environment::Environment};
 
 pub fn draw(graphics: &mut Graphics2D, font: &Font, agent: &Agent) {
     draw_grid(graphics);
@@ -54,65 +56,76 @@ fn draw_agent_action_values(graphics: &mut Graphics2D, font: &Font, agent: &Agen
             }
 
             for action in &state.actions {
+                let color = color(font, agent, state, action);
+                let text_block = text_block(font, agent, state, action);
+
                 match action {
                     agent::Action::Up(_) => {
-                        let mut color = Color::WHITE;
-                        if agent.state.row == state.row && agent.state.col == state.col {
-                            color = match agent.action {
-                                agent::Action::Up(_) => Color::RED,
-                                _ => Color::WHITE,
-                            };
-                        }
-                        let value_text = format!("{:.0}", action.value());
-                        let value_block = font.layout_text(&value_text, 0.25 * CELL_SIZE as f32, TextOptions::new());
-                        let x = (X_OFFSET + state.col * CELL_SIZE) as f32 + 0.5 * CELL_SIZE as f32 - 0.5 * value_block.width();
+                        let x = (X_OFFSET + state.col * CELL_SIZE) as f32 + 0.5 * CELL_SIZE as f32 - 0.5 * text_block.width();
                         let y = (Y_OFFSET + state.row * CELL_SIZE) as f32 + 0.1 * CELL_SIZE as f32;
-                        graphics.draw_text((x.round(), y.round()), color, &value_block);			
+                        graphics.draw_text((x.round(), y.round()), color, &text_block);			
                     },
                     agent::Action::Right(_) => {
-                        let mut color = Color::WHITE;
-                        if agent.state.row == state.row && agent.state.col == state.col {
-                            color = match agent.action {
-                                agent::Action::Right(_) => Color::RED,
-                                _ => Color::WHITE,
-                            };
-                        }
-                        let value_text = format!("{:.0}", action.value());
-                        let value_block = font.layout_text(&value_text, 0.25 * CELL_SIZE as f32, TextOptions::new());
-                        let x = (X_OFFSET + state.col * CELL_SIZE) as f32 + 0.9 * CELL_SIZE as f32 - value_block.width();
-                        let y = (Y_OFFSET + state.row * CELL_SIZE) as f32 + 0.5 * CELL_SIZE as f32 - 0.5 * value_block.height();
-                        graphics.draw_text((x.round(), y.round()), color, &value_block);	
+                        let x = (X_OFFSET + state.col * CELL_SIZE) as f32 + 0.9 * CELL_SIZE as f32 - text_block.width();
+                        let y = (Y_OFFSET + state.row * CELL_SIZE) as f32 + 0.5 * CELL_SIZE as f32 - 0.5 * text_block.height();
+                        graphics.draw_text((x.round(), y.round()), color, &text_block);	
                     },
                     agent::Action::Down(_) => {
-                        let mut color = Color::WHITE;
-                        if agent.state.row == state.row && agent.state.col == state.col {
-                            color = match agent.action {
-                                agent::Action::Down(_) => Color::RED,
-                                _ => Color::WHITE,
-                            };
-                        }
-                        let value_text = format!("{:.0}", action.value());
-                        let value_block = font.layout_text(&value_text, 0.25 * CELL_SIZE as f32, TextOptions::new());
-                        let x = (X_OFFSET + state.col * CELL_SIZE) as f32 + 0.5 * CELL_SIZE as f32 - 0.5 * value_block.width();
-                        let y = (Y_OFFSET + state.row * CELL_SIZE) as f32 + 0.9 * CELL_SIZE as f32 - value_block.height();
-                        graphics.draw_text((x.round(), y.round()), color, &value_block);		
+                        let x = (X_OFFSET + state.col * CELL_SIZE) as f32 + 0.5 * CELL_SIZE as f32 - 0.5 * text_block.width();
+                        let y = (Y_OFFSET + state.row * CELL_SIZE) as f32 + 0.9 * CELL_SIZE as f32 - text_block.height();
+                        graphics.draw_text((x.round(), y.round()), color, &text_block);		
                     },
                     agent::Action::Left(_) => {
-                        let mut color = Color::WHITE;
-                        if agent.state.row == state.row && agent.state.col == state.col {
-                            color = match agent.action {
-                                agent::Action::Left(_) => Color::RED,
-                                _ => Color::WHITE,
-                            };
-                        }
-                        let value_text = format!("{:.0}", action.value());
-                        let value_block = font.layout_text(&value_text, 0.25 * CELL_SIZE as f32, TextOptions::new());
                         let x = (X_OFFSET + state.col * CELL_SIZE) as f32 + 0.1 * CELL_SIZE as f32;
-                        let y = (Y_OFFSET + state.row * CELL_SIZE) as f32 + 0.5 * CELL_SIZE as f32 - 0.5 * value_block.height();
-                        graphics.draw_text((x.round(), y.round()), color, &value_block);	
+                        let y = (Y_OFFSET + state.row * CELL_SIZE) as f32 + 0.5 * CELL_SIZE as f32 - 0.5 * text_block.height();
+                        graphics.draw_text((x.round(), y.round()), color, &text_block);	
                     },
                 }
             }
         }
     }
+}
+
+fn color(font: &Font, agent: &Agent, state: &State, action: &Action) -> Color {
+    let mut color = Color::WHITE;
+    if agent.state.row == state.row && agent.state.col == state.col {
+        color = match action {
+            Action::Up(_) => {
+                match agent.action {
+                    Action::Up(_) => Color::RED,
+                    _ => Color::WHITE,
+                }
+            },
+            Action::Right(_) => {
+                match agent.action {
+                    Action::Right(_) => Color::RED,
+                    _ => Color::WHITE,
+                }
+            },
+            Action::Down(_) => {
+                match agent.action {
+                    Action::Down(_) => Color::RED,
+                    _ => Color::WHITE,
+                }
+            },
+            Action::Left(_) => {
+                match agent.action {
+                    Action::Left(_) => Color::RED,
+                    _ => Color::WHITE,
+                }
+            },
+        };
+    }
+    color
+}
+
+fn text_block(font: &Font, agent: &Agent, state: &State, action: &Action) -> Rc<FormattedTextBlock> {
+    let mut value_text = String::from("");
+    if action.value() < 10.0 {
+        value_text = format!("{:.2}", action.value());
+    } else {
+        value_text = format!("{:.0}", action.value());
+    }
+
+    font.layout_text(&value_text, 0.25 * CELL_SIZE as f32, TextOptions::new())
 }

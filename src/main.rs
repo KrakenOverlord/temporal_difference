@@ -8,12 +8,13 @@ mod draw;
 use draw::draw;
 
 use rand::prelude::SliceRandom;
-use speedy2d::{Window, window::{WindowHelper, WindowHandler, VirtualKeyCode}, Graphics2D, color::Color, font::{Font, TextOptions, TextLayout}, shape::Rectangle, dimen::Vector2};
+use speedy2d::{Window, window::{WindowHelper, WindowHandler, VirtualKeyCode}, Graphics2D, color::Color, font::Font};
 
+const MANUAL_STEP: bool = true;
 const MAX_EPISODES: u32 = 10_000;
-const MAX_STEPS: u32 = 50_000;
+const MAX_STEPS: u32 = 100_000;
 const NUM_GOALS: u32 = 1;
-const GOALS: [State; NUM_GOALS as usize] = [State { row: 0, col: 0, goal: true }];//, State { row: 3, col: 3, goal: true }];
+const GOALS: [State; NUM_GOALS as usize] = [State { row: 0, col: 0, goal: true }];
 
 const NUM_ROWS: u32 = 4;
 const NUM_COLS: u32 = 4;
@@ -34,11 +35,27 @@ fn main() {
 	let y_dimension = NUM_ROWS * CELL_SIZE + 2 * Y_OFFSET;
 
     let window = Window::<()>::new_centered("Simulation", (x_dimension, y_dimension)).unwrap();
-    window.run_loop(Main::new());
+
+	let mut main = Main::new();
+    if MANUAL_STEP {
+		window.run_loop(main);
+	} else {
+		loop {
+			let done = main.on_step();
+			if done {
+				break;
+			}
+		}
+	}
+
+	if MANUAL_STEP == false {
+		window.run_loop(main);
+	}
 }
 pub struct Main {
 	auto_step:		bool,
 	steps: 			u32,
+	draw:			bool,
 	episodes:		u32,
 	state: 			State,
 	reward: 		f32,
@@ -64,6 +81,7 @@ impl Main {
         Self { 
 			auto_step: false,
 			steps: 0,
+			draw: true,
 			episodes: 0,
 			state: response.0,
 			reward: response.1,
@@ -100,19 +118,17 @@ impl Main {
 		}
 	}
 
-	fn on_step(&mut self) {
+	fn on_step(&mut self) -> bool {
 		if self.episodes >= MAX_EPISODES || self.steps >= MAX_STEPS {
-			return;
+			return true;
 		}
 
 		let action = self.agent.iterate(self.state, self.reward);
 		
 		if self.state.goal {
-			println!("Step: {}, Episodes: {}", self.steps, self.episodes);
-
 			self.reset();
 			self.episodes += 1;
-			return;
+			return false;
 		}
 
 		let response = self.environment.respond(self.state, action);
@@ -120,10 +136,7 @@ impl Main {
 		self.reward = response.1;
 
 		self.steps += 1;
-	}
-
-	fn convert_state(&self, state: &agent::State) -> State {
-		self.environment.states[state.row as usize][state.col as usize]
+		false
 	}
 }
 
@@ -137,8 +150,12 @@ impl WindowHandler for Main {
 			self.on_step();
 		}
 		
-		graphics.clear_screen(Color::BLACK);
-		draw(graphics, &self.font, &self.agent);
+		if self.draw {
+			let title = format!("Episodes: {} Steps: {}", self.episodes, self.steps);
+			helper.set_title(title);
+			graphics.clear_screen(Color::BLACK);
+			draw(graphics, &self.font, &self.agent);
+		}
 		helper.request_redraw();
 	}
 
@@ -148,7 +165,6 @@ impl WindowHandler for Main {
 		virtual_key_code: Option<speedy2d::window::VirtualKeyCode>,
 		_scancode: speedy2d::window::KeyScancode
 	) {
-		println!("{:#?}", virtual_key_code);
 		match virtual_key_code.unwrap() {
 			VirtualKeyCode::A => {
 				if self.auto_step == false {
@@ -157,7 +173,16 @@ impl WindowHandler for Main {
 					self.auto_step = false;
 				}
 			},
-			VirtualKeyCode::Space => self.on_step(),
+			VirtualKeyCode::Space => {
+				self.on_step();
+			},
+			VirtualKeyCode::D => {
+				if self.draw == false {
+					self.draw = true;
+				} else {
+					self.draw = false;
+				}
+			},
 			VirtualKeyCode::Q => helper.terminate_loop(),
 			_ => {},
 		}
