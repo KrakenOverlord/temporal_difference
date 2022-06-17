@@ -104,29 +104,24 @@ impl Clone for State {
 
 #[derive(Debug)]
 pub struct Agent {
-    pub state:  State,
-    pub action: Action,
-    pub states: Vec<Vec<State>>,
+    pub states:         Vec<Vec<State>>,
+    pub last_state:     Option<State>,
+    pub last_action:    Option<Action>,
 }
 
 impl Agent {
     // Returns an agent initialized with the starting state and first action selection.
-    pub fn new(state: crate::environment::State, num_rows: u32, num_cols: u32) -> Agent {
+    pub fn new(num_rows: u32, num_cols: u32) -> Self {
         let states = Agent::initialize_states(num_rows, num_cols);
-        let mut state = Agent::convert_state(state, &states);
-        let action = state.select_action();
-        
-        println!("Agent initialized to {:#?}", state);
-        println!("Agent initialized to action: {:#?}", action);
 
-        Agent {
-            state,
-            action,
+        Self {
             states,
+            last_state: None,
+            last_action: None,
         }
     }
 
-    pub fn reset(&mut self, state: crate::environment::State) {
+    pub fn reset(&mut self) {
         // reset state visits to zero
         for row in &mut self.states {
             for state in row {
@@ -134,9 +129,8 @@ impl Agent {
             }
         }
         
-        let mut state = Agent::convert_state(state, &self.states);
-        self.state = state.clone();
-        self.action = state.select_action();
+        self.last_state = None;
+        self.last_action = None;
     }
 
     fn initialize_states(num_rows: u32, num_cols: u32) -> Vec<Vec<State>> {
@@ -151,62 +145,75 @@ impl Agent {
         states
     }
 
-    pub fn iterate(&mut self, new_state: crate::environment::State, reward: f32) -> crate::Action {
-        let mut new_state = Agent::convert_state(new_state, &self.states);
-        let new_action = new_state.select_action();
+    pub fn iterate(&mut self, next_state: crate::environment::State, reward: f32) -> crate::Action {
+        let mut next_state = Agent::convert_state(next_state, &self.states);
+        let next_action = next_state.select_action();
 
-        // Q(s, a) ← Q(s, a) + α (r + γQ(s0, a0) − Q(s, a))
-        let prediction = self.action.value();
-        let target = reward + GAMMA * new_action.value();
+        // Q(s, a) ← Q(s, a) + α (r + γQ(s', a') − Q(s, a))
+        // if α = γ = 1, then Q(s, a) ← r + Q(s', a')
+        let prediction = match self.last_action {
+            Some(a) => a.value(),
+            None => 0.0,
+        };
+        let target = reward + GAMMA * next_action.value();
         let updated_action_value = prediction + ALPHA * (target - prediction);
-        Agent::update_action_value(&mut self.states, self.state.clone(), self.action, updated_action_value);
+        self.update_last_action_value(updated_action_value);
 
-        self.state = new_state;
-        self.action = new_action;
-        new_action.convert()
+        self.last_state = Some(next_state);
+        self.last_action = Some(next_action);
+        next_action.convert()
     }
 
-    fn update_action_value(states: &mut Vec<Vec<State>>, state: State, action: Action, action_value: f32) {
-        let mut new_actions: Vec<Action> = Vec::new();
+    fn update_last_action_value(&mut self, new_action_value: f32) {
+        let last_state = match &self.last_state {
+            Some(s) => s,
+            None => return,
+        };
 
-        for a in state.actions {
+        let last_action = match &self.last_action {
+            Some(a) => a,
+            None => return,
+        };
+
+        let mut new_actions: Vec<Action> = Vec::new();
+        for a in &last_state.actions {
             match a {
                 Action::Up(_) => {
-                    match action {
+                    match last_action {
                         Action::Up(_) => {
-                            new_actions.push(Action::Up(action_value));
+                            new_actions.push(Action::Up(new_action_value));
                         },
-                        _ => new_actions.push(a),
+                        _ => new_actions.push(*a),
                     }
                 },
                 Action::Right(_) => {
-                    match action {
+                    match last_action {
                         Action::Right(_) => {
-                            new_actions.push(Action::Right(action_value));
+                            new_actions.push(Action::Right(new_action_value));
                         },
-                        _ => new_actions.push(a),
+                        _ => new_actions.push(*a),
                     }
                 },
                 Action::Down(_) => {
-                    match action {
+                    match last_action {
                         Action::Down(_) => {
-                            new_actions.push(Action::Down(action_value));
+                            new_actions.push(Action::Down(new_action_value));
                         },
-                        _ => new_actions.push(a),
+                        _ => new_actions.push(*a),
                     }
                 },
                 Action::Left(_) => {
-                    match action {
+                    match last_action {
                         Action::Left(_) => {
-                            new_actions.push(Action::Left(action_value));
+                            new_actions.push(Action::Left(new_action_value));
                         },
-                        _ => new_actions.push(a),
+                        _ => new_actions.push(*a),
                     }
                 },
             }
         }
 
-        states[state.row as usize][state.col as usize].actions = new_actions;
+        self.states[last_state.row as usize][last_state.col as usize].actions = new_actions;
     }
 
     fn convert_state(state: crate::environment::State, states: &Vec<Vec<State>>) -> State {
