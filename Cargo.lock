@@ -1147,14 +1147,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "simulation"
-version = "0.1.0"
-dependencies = [
- "rand",
- "speedy2d",
-]
-
-[[package]]
 name = "slotmap"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1220,6 +1212,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "temporal_difference"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "speedy2d",
 ]
 
 [[package]]
